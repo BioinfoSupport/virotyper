@@ -22,7 +22,6 @@ DEALINGS IN THE SOFTWARE.
 
 ```bash
 repo2docker ./
-docker run --rm -ti -p 8787:8787 --user root rocker/binder /init
 ```
 
 ```bash
