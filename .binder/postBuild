@@ -1,0 +1,24 @@
+#!/bin/bash
+set -ex
+
+
+# Install SAMTOOLS / BCFTOOLS / MINIMAP2
+mkdir -p /tmp/samtools/ \
+   && curl -kL https://github.com/samtools/samtools/releases/download/1.19.2/samtools-1.19.2.tar.bz2 \
+   | tar -C /tmp/samtools/ --strip-components=1 -jxf - \
+   && cd /tmp/samtools/ && ./configure && make -j4 && make install
+
+mkdir -p /tmp/bcftools/ \
+   && curl -kL https://github.com/samtools/bcftools/releases/download/1.19/bcftools-1.19.tar.bz2 \
+   | tar -C /tmp/bcftools/ --strip-components=1 -jxf - \
+   && cd /tmp/bcftools/ && ./configure && make -j4 && make install
+
+RUN mkdir -p /tmp/minimap2/ \
+   && curl -kL https://github.com/lh3/minimap2/releases/download/v2.27/minimap2-2.27.tar.bz2 \
+   | tar -C /tmp/minimap2/ --strip-components=1 -jxf - \
+   && cd /tmp/minimap2/ \
+   && (if [ "$TARGETPLATFORM" = "linux/arm64" ]; then \
+      make arm_neon=1 aarch64=1; \
+  else \
+      make; \
+  fi)

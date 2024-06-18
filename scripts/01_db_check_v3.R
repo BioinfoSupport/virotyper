@@ -1,0 +1,104 @@
+
+#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
+# Load and check validity of the resistance database
+#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
+
+library(tidyverse)
+library(Biostrings)
+library(GenomicRanges)
+library(SummarizedExperiment)
+
+
+# Generate all possible nucleotide mutation for an amino-acid mutation
+SNP_CONSEQUENCES <- local({
+  allSNPcsq <- tibble("codon"=names(GENETIC_CODE),"AA"=unname(GENETIC_CODE)) %>%
+    cross_join(.,.,suffix=c(".REF", ".ALT"))
+  mismatch <- with(allSNPcsq,as.matrix(DNAStringSet(codon.REF))!=as.matrix(DNAStringSet(codon.ALT)))
+  allSNPcsq |>
+    mutate(num_mismatch = rowSums(mismatch)) |>
+    mutate(phase = max.col(mismatch)-1L) |>
+    filter(num_mismatch==1L) |>
+    filter(AA.REF != AA.ALT) |>
+    mutate(num_mismatch=NULL) |>
+    mutate(nt.REF = substr(codon.REF,phase+1L,phase+1L)) |>
+    mutate(nt.ALT = substr(codon.ALT,phase+1L,phase+1L))
+})
+
+
+
+#' Extract mutations from standard strain identifiers
+#' @example 
+#' parse_strain_ids(c("HHV1-UL23:A253G","HHV1-UL23:AL253A","HHV1-UL23:atg23a","HHV1-UL30:g50gtc","HHV1-UL30:t54g"))
+parse_strain_ids <- function(strain_ids) {
+  STRAIN_ID_PATTERN <- "^([^:]+):((([A-Z]+)([0-9]+)([A-Z*]+))|(([acgt]+)([0-9]+)([acgt]+)))$"
+  tibble(strain_id = strain_ids) |>
+    mutate(is_valid_strain_id = str_detect(strain_id,STRAIN_ID_PATTERN)) |>
+    mutate(CHROM = case_when(is_valid_strain_id ~ str_replace(strain_id,STRAIN_ID_PATTERN,"\\1"))) |>
+    mutate(AA.POS = as.integer(case_when(is_valid_strain_id ~ str_replace(strain_id,STRAIN_ID_PATTERN,"\\5")))) |>
+    mutate(AA.REF = case_when(is_valid_strain_id ~ str_replace(strain_id,STRAIN_ID_PATTERN,"\\4"))) |>
+    mutate(AA.ALT = case_when(is_valid_strain_id ~ str_replace(strain_id,STRAIN_ID_PATTERN,"\\6"))) |>
+    mutate(DNA.POS = as.integer(case_when(is_valid_strain_id ~ str_replace(strain_id,STRAIN_ID_PATTERN,"\\9")))) |>
+    mutate(DNA.REF = case_when(is_valid_strain_id ~ str_to_upper(str_replace(strain_id,STRAIN_ID_PATTERN,"\\8")))) |>
+    mutate(DNA.ALT = case_when(is_valid_strain_id ~ str_to_upper(str_replace(strain_id,STRAIN_ID_PATTERN,"\\10")))) |>
+    mutate(is_aa_mutation = is_valid_strain_id & !is.na(AA.POS) & !is.na(CHROM)) |>
+    mutate(is_dna_mutation = is_valid_strain_id & !is_aa_mutation) |>
+    mutate(CODON_LOC = case_when(is_aa_mutation ~ paste0(CHROM,":",3L*(AA.POS-1L) + 1L,"-",3L*(AA.POS-1L)*nchar(AA.REF) + 3L))) |>
+    mutate(DNA_LOC = case_when(is_dna_mutation ~ paste0(CHROM,":",DNA.POS,"-",DNA.POS + nchar(DNA.REF)-1L)))
+}
+
+db_check <- function(db_res,fa_file) {
+  # Load reference sequences
+  fa <- readDNAStringSet(fa_file)
+  
+  # Parse standard strain names
+  strains <- parse_strain_ids(unique(db_res$strain_id)) |>
+    mutate(CODON.FASTA = replace(NA_character_,!is.na(CODON_LOC),as.character(fa[GRanges(CODON_LOC[!is.na(CODON_LOC)])]))) |>
+    mutate(AA.FASTA = replace(NA_character_,!is.na(CODON.FASTA),translate(DNAStringSet(CODON.FASTA[!is.na(CODON.FASTA)]),no.init.codon = TRUE))) |>
+    mutate(is_valid_ref_aa = replace_na(AA.FASTA == AA.REF,FALSE)) |>
+    mutate(DNA.FASTA = replace(NA_character_,!is.na(DNA_LOC),as.character(fa[GRanges(DNA_LOC[!is.na(DNA_LOC)])]))) |>
+    mutate(is_valid_ref_dna = replace_na(DNA.FASTA == DNA.REF,FALSE))
+    
+
+  # Add mutation string in BCSQ format that will be compared to the VCF calls
+  strains <- strains |>
+    mutate(aa_chg_bcsq = case_when(is_aa_mutation ~ str_glue("{AA.POS}{AA.REF}>{AA.POS}{AA.ALT}"))) |>
+    mutate(dna_chg_bcsq = case_when(is_dna_mutation ~ str_glue("{DNA.POS}{DNA.REF}>{DNA.POS}{DNA.ALT}")))
+  
+  # Expand strains into all possible genotypes (nucleotide)
+  strains_gt <- right_join(SNP_CONSEQUENCES,strains,by=join_by(AA.REF,AA.ALT,codon.REF==CODON.FASTA),relationship="many-to-many") |>
+    mutate(POS=(AA.POS-1L)*3L+phase+1L) |>
+    mutate(is_valid_snp_transition = !is.na(codon.ALT)) |>
+    mutate(is_valid_overall = (is_aa_mutation & is_valid_ref_aa & is_valid_snp_transition) | (is_dna_mutation & is_valid_ref_dna)) |>
+    arrange(CHROM,POS) |>
+    relocate(CHROM,POS,strain_id,AA.REF,AA.POS,AA.ALT)
+  
+  # Add strain information
+  strains <- strains |>
+    mutate(is_valid_snp_transition = strain_id %in% strains_gt$strain_id[strains_gt$is_valid_snp_transition]) |>
+    mutate(is_valid_overall = strain_id %in% strains_gt$strain_id[strains_gt$is_valid_overall])
+
+  # Merge strain information with resistance DB
+  db_res |>
+    left_join(strains,by="strain_id",relationship="many-to-one") |>
+    arrange(desc(is_valid_overall),CHROM,AA.POS)
+}
+
+
+
+#-#-#-#-#-#-#-#
+# Main
+#-#-#-#-#-#-#-#
+vars <- c("CHROM","AA.POS","AA.REF","AA.ALT","CODON_LOC","CODON.FASTA","AA.FASTA","is_valid_strain_id","is_valid_ref","aa_chg_bcsq","is_valid_transition")
+db_res <- readxl::read_xlsx("data/HHV1/db/2024-05-28_hsv1.resistance.db.chk.xlsx","resistances") |>
+  select(!any_of(vars)) |>
+  db_check("data/HHV1/db/ref.fasta")
+openxlsx::write.xlsx(list(resistances=db_res) ,"data/HHV1/db/resistances.chk.xlsx",overwrite = TRUE)
+
+db_res <- readxl::read_xlsx("data/HHV2/db/2024-05-14_hsv2.resistance.db.xlsx","resistances") |>
+  select(!any_of(vars)) |>
+  db_check("data/HHV2/db/ref.fasta")
+openxlsx::write.xlsx(list(resistances=db_res) ,"data/HHV2/db/resistances.chk.xlsx",overwrite = TRUE)
+
+
+
+
