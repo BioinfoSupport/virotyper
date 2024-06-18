@@ -3,7 +3,10 @@
 # Disclaimer
 
 ```
-IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, 
+DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, 
+ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER 
+DEALINGS IN THE SOFTWARE.
 ```
 
 # Usage
@@ -11,9 +14,9 @@ IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMA
 ## In the cloud
 
 
-[![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/unigebsp/virotyper.git/HEAD?urlpath=rstudio)
+[![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/BioinfoSupport/virotyper.git/main?urlpath=rstudio)
 
-[![Binder](http://mybinder.org/badge_logo.svg)](http://mybinder.org/v2/gh/unigebsp/virotyper.git/HEAD?urlpath=shiny/app)
+[![Binder](http://mybinder.org/badge_logo.svg)](http://mybinder.org/v2/gh/BioinfoSupport/virotyper.git/main?urlpath=shiny/app)
 
 
 # Locally
