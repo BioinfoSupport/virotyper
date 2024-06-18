@@ -13,13 +13,17 @@ DEALINGS IN THE SOFTWARE.
 
 ## In the cloud
 
-
 [![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/BioinfoSupport/virotyper.git/HEAD?urlpath=rstudio)
 
 [![Binder](http://mybinder.org/badge_logo.svg)](http://mybinder.org/v2/gh/BioinfoSupport/virotyper.git/HEAD?urlpath=shiny/app)
 
 
 # Locally
+
+```bash
+repo2docker ./
+docker run --rm -ti -p 8787:8787 --user root rocker/binder /init
+```
 
 ```bash
 # Run a bash in the container
@@ -43,6 +47,9 @@ ls data/HHV2/bam/*.bam | grep -v filt | sed s/.bam$/.filt.10k.report/ | xargs ma
 # Run variant calling for all FASTA files in a directory
 ls data/HHV1/fasta/*.fasta | sed s/.fasta$/.asm.report/ | xargs make -kj6
 ls data/HHV2/fasta/*.fasta | sed s/.fasta$/.asm.report/ | xargs make -kj6 DB_DIR=data/HHV2/db
+
+
+ls data/HHV1/vcf/*.vcf.gz | sed s/.vcf$/.vcf.report/ | xargs make -kj6
 ```
 
 
