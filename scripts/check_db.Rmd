@@ -1,13 +1,26 @@
+---
+title: "Rapport de vérification de la database de résistance"
+output:
+  html_document: 
+    theme: default
+    highlight: espresso 
+params:
+  reference_fasta: "data/HHV1/db/ref.fasta"
+  input_db_xlsx: "data/HHV1/db/2024-05-28_hsv1.resistance.db.chk.xlsx"
+  output_db_xlsx: "data/HHV1/db/resistances.chk.xlsx"
+---
 
-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
-# Load and check validity of the resistance database
-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
 
+
+Ce rapport vérifie la cohérence de la base de donnée de résistance.
+
+ 
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
 library(tidyverse)
 library(Biostrings)
 library(GenomicRanges)
 library(SummarizedExperiment)
-
 
 # Generate all possible nucleotide mutation for an amino-acid mutation
 SNP_CONSEQUENCES <- local({
@@ -82,23 +95,44 @@ db_check <- function(db_res,fa_file) {
     left_join(strains,by="strain_id",relationship="many-to-one") |>
     arrange(desc(is_valid_overall),CHROM,AA.POS)
 }
+```
+
+|                                   |                                         |
+|-----------------------------------|-----------------------------------------|
+| Nom de la database de résistance: | ``r params$input_db_dir``               |
 
 
 
-#-#-#-#-#-#-#-#
-# Main
-#-#-#-#-#-#-#-#
+# Load the database from xlsx
+```{r}
 vars <- c("CHROM","AA.POS","AA.REF","AA.ALT","CODON_LOC","CODON.FASTA","AA.FASTA","is_valid_strain_id","is_valid_ref","aa_chg_bcsq","is_valid_transition")
-db_res <- readxl::read_xlsx("data/HHV1/db/2024-05-28_hsv1.resistance.db.chk.xlsx","resistances") |>
+db_res <- readxl::read_xlsx(params$input_db_xlsx,"resistances") |>
   select(!any_of(vars)) |>
-  db_check("data/HHV1/db/ref.fasta")
-openxlsx::write.xlsx(list(resistances=db_res) ,"data/HHV1/db/resistances.chk.xlsx",overwrite = TRUE)
+  db_check(params$reference_fasta)
+```
 
-db_res <- readxl::read_xlsx("data/HHV2/db/2024-05-14_hsv2.resistance.db.xlsx","resistances") |>
-  select(!any_of(vars)) |>
-  db_check("data/HHV2/db/ref.fasta")
-openxlsx::write.xlsx(list(resistances=db_res) ,"data/HHV2/db/resistances.chk.xlsx",overwrite = TRUE)
+```{r}
+filter(db_res,is_dna_mutation,!is_valid_ref_dna) |>
+  select(strain_id,DNA.FASTA) |>
+  knitr::kable(caption="Liste des mutations DNA où le nucleotide de référence est invalide")
+
+filter(db_res,is_aa_mutation,!is_valid_ref_aa) |>
+  select(strain_id,AA.POS,AA.FASTA,CODON.FASTA) |>
+  knitr::kable(caption="Liste des mutations où l'amino-acide de référence est invalide")
+
+filter(db_res,is_aa_mutation,is_valid_ref_aa,!is_valid_snp_transition) |>
+  select(strain_id,AA.POS,AA.FASTA,CODON.FASTA) |>
+  knitr::kable(caption="Liste des mutations où l'amino-acide cible ne peut être obtenu par un SNP")
+```
 
 
 
+
+
+
+
+# Generate excel of the verified database
+```{r}
+openxlsx::write.xlsx(list(resistances=db_res),params$output_db_xlsx,overwrite = TRUE)
+```
 

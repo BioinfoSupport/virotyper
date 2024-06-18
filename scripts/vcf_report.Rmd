@@ -1,0 +1,195 @@
+---
+title: "Rapport d'analyse de mutations conférant des résistances"
+output:
+  html_document: 
+    theme: default
+    highlight: espresso
+params:
+  input_db_dir: "data/HHV1/db"
+  #input_vcf_file: "data/HHV1/bam/240222-HE.HHV1.filt.10k.vcf.gz"
+  #input_vcf_file: data/HHV1/fasta/230330_40970504_BLC_HSV1.asm.vcf.gz
+  #input_vcf_file: "data/HHV1/fasta/test_inframe_indel.asm.vcf.gz"
+  #input_vcf_file: "data/HHV1/fasta/test_inframe_indel.asm.vcf.gz"
+  #input_vcf_file: "data/HHV1/fasta/test_no_mutation.asm.vcf.gz"
+  input_vcf_file: "data/HHV1/vcf/RUN0_240618_0123456789_HHV1_AA.vcf.gz"  
+  output_docx_report: "out.docx"
+---
+
+
+
+Ce rapport affiche les mutations d'un fichier VCF, et les compare à une base de 
+donnée de mutations conférants des résistances à des antiviraux.
+
+**Requirements:** Le fihcier VCF d'entré doit contenir les champs INFO/DP,INFO/AF,INFO/BCSQ.
+
+**Note:** Le rapport du fichier BAM correspondant au fichier VCF devrait être inspécté avant celui-ci pour s'assurer que les séquences de référence sont entièrement couverte par le séquencage. En effet, il est possible que des mutations soient manquées dans le VCF dans des mutations faiblement couverte en séquencage. 
+
+ 
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+library(tidyverse)
+library(Rsamtools)
+
+
+# Parse a BCSQ string and return a data.frame()
+parse_BCSQ <- function(BCSQ) {
+  tibble(str=as.character(BCSQ)) |>
+    mutate(fields=str_split(str,"[|]")) |>
+    hoist(fields,dna_change=7,gene=2,strand=5,amino_acid_change=6,consequence=1,transcript=3,biotype=4,.ptype = character()) |>
+    select(!str)
+}
+
+highlight_cell_spec <- function(v,msk,bg="red") {
+  kableExtra::cell_spec(v,
+      background = ifelse(msk,bg,""),
+      color = ifelse(msk,"white","black"),
+      bold = msk
+  )
+}
+
+
+kable_style <- function(...,escape=FALSE,row.names = FALSE,align = "c") {
+  kableExtra::kbl(...,escape = escape,row.names = row.names,align = align) |>
+   kableExtra::kable_classic("striped",full_width=FALSE)
+  #knitr::kable(...,escape = escape,align = align,row.names = row.names)
+}
+
+query_vcf <- function(vcf_file) {
+  mut <- "bcftools query --format '%CHROM\t%POS\t%REF\t%ALT\t%BCSQ\t%DP\t%AF\n' '{vcf_file}'" |>
+    str_glue() |>
+    pipe() |>
+    read.table(
+      sep="\t",header=FALSE,quote="",comment="",
+      col.names = c("CHROM","POS","REF","ALT","BCSQ","DP","AF"),
+      colClasses = c(CHROM="character",POS="numeric",REF="character",ALT="character",BCSQ="character",DP="numeric",AF="numeric")
+    ) |>
+    as_tibble() |>
+    mutate(DNA_CHANGE = str_glue("{POS}{REF}>{ALT}")) |>
+    mutate(VarProportion = sprintf("%.1f%% (of %d)",100*AF,DP))
+}
+```
+
+|                                   |                                         |
+|-----------------------------------|-----------------------------------------|
+| Nom de la database de résistance: | ``r params$input_db_dir``               |
+| Nom du fichier VCF analysé:       | ``r params$input_vcf_file``             |
+
+
+# TODO
+ - tester la situation ou la deteltion est en base 1: comment representer cela dans bcf ? => il faut mettre la base après avec la position 1 eg: ATGC1C
+ - Verifier si on peut ecrire les deletion/insertion inframe en amino-acid dans la DB => oui avec le même format que pour les DNA
+ - Ajouter dans le check des resistance le check des stops
+
+
+```{r,message=FALSE}
+# Load data
+db <- readxl::read_xlsx(file.path(params$input_db_dir,"resistances.chk.xlsx"))
+fa <- FaFile(file.path(params$input_db_dir,"ref.fasta"))
+mut <- query_vcf(params$input_vcf_file)
+
+# Parse BCSQ
+mut <- bind_cols(mut,parse_BCSQ(mut$BCSQ)) |>
+  arrange(CHROM)
+
+# Match BCSQ with mutations in resistance DB
+mut <- mut |>
+  left_join(dplyr::select(db,c(CHROM,aa_chg_bcsq,drug_resistance)),by=c("CHROM","amino_acid_change"="aa_chg_bcsq")) |>
+  left_join(dplyr::select(db,c(CHROM,dna_chg_bcsq,drug_resistance)),by=c("CHROM","dna_change"="dna_chg_bcsq")) |>
+  unite("drug_resistance",drug_resistance.x,drug_resistance.y,sep = ",",na.rm = TRUE) |>
+  mutate(drug_resistance = case_when(
+    is.na(drug_resistance) ~ "-",
+    drug_resistance == "" ~ "-",
+    TRUE ~ drug_resistance))
+```
+
+
+
+
+
+
+
+
+
+
+# Contenu du ficher VCF
+
+Cette section affiche la liste de toute les mutations detéctés (contenu du fichier VCF),
+et la confronte à la database de résistances connues.
+
+```{r}
+MUT <- mut |> 
+  filter(str_starts(BCSQ,"@",negate = TRUE)) |>
+  arrange(CHROM,POS)
+
+MUT |>
+  dplyr::select(CHROM,dna_change,gene,amino_acid_change,VarProportion,consequence,drug_resistance,AF) |>
+  mutate(across(!VarProportion,~str_trunc(.,width=20))) |>
+  mutate(VarProportion = highlight_cell_spec(VarProportion,AF<0.5,bg="#2E8B57")) |>
+  select(!AF) |>
+  mutate(consequence = highlight_cell_spec(consequence,consequence!="synonymous")) |>
+  kable_style(caption="Liste des mutations identifiées par rapport aux références")
+```
+
+Légende:
+
+ - `CHROM`: Nom de la séquence de référence
+ - `dna_change`: Position de la mutation sur le génome.
+ - `gene`: Nom du gène impacté par la mutation.
+ - `amino_acid_change`: Position de la mutation sur la protéine.
+ - `VarProportion`: Proportion des reads portant la mutation.
+ - `consequence`: Classification de la mutation (synonymous, missense, stop_gained, frameshift, inframe_shift).
+ - `drug_resistance`: Nom de l'antiviral pour lequel la mutation confére une résitance.
+
+
+
+# Résumé Graphique {.tabset}
+
+## Mutations
+
+```{r}
+mut |>
+  filter(str_starts(BCSQ,"@",negate = TRUE)) |>
+  ggplot() + 
+    facet_wrap(CHROM~.,scales = "free",ncol=1) +
+    geom_jitter(aes(x=POS,y=consequence,size=AF,color=drug_resistance),alpha=0.5,width = 0,height=0.3) +
+    #ggrepel::geom_label_repel(aes(x=start,y=consequence,label=DNA_CHANGE),size=2) +
+    geom_segment(aes(y="_genome",yend=after_stat(y),x=1,xend=seqlengths),data=as.data.frame(seqinfo(fa)) |> rownames_to_column("CHROM")) +
+    scale_size_area(limits=c(0,1),labels=scales::percent) + 
+    xlab("Position sur la séquence de référence") + ylab("") +
+    theme_bw() +
+    theme(strip.text.y = element_text(angle=0)) +
+    ggtitle("Position des mutations détectées")
+```
+
+
+
+
+
+# Génération du rapport clinique
+
+```{r include=FALSE}
+library(officer)
+docx_template <- file.path(params$input_db_dir,"template.docx")
+
+MUT <- mut |> 
+  filter(str_starts(BCSQ,"@",negate = TRUE)) |>
+  filter(consequence != "synonymous") |>
+  dplyr::select(CHROM,dna_change,amino_acid_change,VarProportion,consequence,drug_resistance) %>%
+  split(factor(.$CHROM,seqlevels(fa)))
+
+doc <- read_docx(docx_template) |>
+  body_replace_all_text("SMPLLABEL",sub("","",basename(params$input_vcf_file)),fixed = TRUE)
+
+for(i in names(MUT)) {
+  marker <- paste0("RES-",i)
+  doc <- doc |>
+    cursor_reach(marker) |>
+    body_replace_all_text(marker,"",fixed = TRUE,only_at_cursor = TRUE) |>
+    body_add_table(select(MUT[[i]],!CHROM),style="StyleTableauRes")
+}
+if (!is.null(params$output_docx_report)) {
+  print(doc,target=paste0(params$input_vcf_file,".docx"))
+}
+  
+```
+
