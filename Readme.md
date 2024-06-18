@@ -14,9 +14,9 @@ DEALINGS IN THE SOFTWARE.
 ## In the cloud
 
 
-[![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/BioinfoSupport/virotyper.git/main?urlpath=rstudio)
+[![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/BioinfoSupport/virotyper.git/HEAD?urlpath=rstudio)
 
-[![Binder](http://mybinder.org/badge_logo.svg)](http://mybinder.org/v2/gh/BioinfoSupport/virotyper.git/main?urlpath=shiny/app)
+[![Binder](http://mybinder.org/badge_logo.svg)](http://mybinder.org/v2/gh/BioinfoSupport/virotyper.git/HEAD?urlpath=shiny/app)
 
 
 # Locally
