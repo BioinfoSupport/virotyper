@@ -20,7 +20,6 @@ knitr::opts_chunk$set(echo = FALSE)
 library(tidyverse)
 library(Biostrings)
 library(GenomicRanges)
-library(SummarizedExperiment)
 
 # Generate all possible nucleotide mutation for an amino-acid mutation
 SNP_CONSEQUENCES <- local({
