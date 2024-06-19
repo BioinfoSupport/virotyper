@@ -42,6 +42,7 @@ USER ${NB_USER}
 ## Install R packages
 RUN <<EOF
 #!/usr/bin/env Rscript
+
 install.packages("tidyverse")
 install.packages(c("rmarkdown","kableExtra","bs4Dash"))
 install.packages("BiocManager")
@@ -49,4 +50,4 @@ BiocManager::install(c("Biostrings","GenomicAlignments","Rsamtools","GenomicRang
 EOF
 
 ## Copy files to home folder
-COPY --chown=${NB_USER} RstudioProject.Rproj .binder bin notebooks ${HOME}/
+COPY --chown=${NB_USER} Dockerfile Makefile RstudioProject.Rproj bin/ notebooks/ ${HOME}/
