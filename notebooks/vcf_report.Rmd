@@ -64,8 +64,7 @@ query_vcf <- function(vcf_file) {
       colClasses = c(CHROM="character",POS="numeric",REF="character",ALT="character",BCSQ="character",DP="numeric",AF="numeric")
     ) |>
     as_tibble() |>
-    mutate(DNA_CHANGE = str_glue("{POS}{REF}>{ALT}")) |>
-    mutate(VarProportion = sprintf("%.1f%% (of %d)",100*AF,DP))
+    mutate(DNA_CHANGE = str_glue("{POS}{REF}>{ALT}"))
 }
 ```
 
@@ -73,7 +72,7 @@ query_vcf <- function(vcf_file) {
 |-----------------------------------|-----------------------------------------|
 | Nom de la database de résistance: | ``r params$input_db_dir``               |
 | Nom du fichier VCF analysé:       | ``r params$input_vcf_file``             |
-
+| Nom du rapport produit:           | ``r params$output_docx_report``         |
 
 # TODO
 
@@ -91,9 +90,10 @@ mut <- bind_cols(mut,parse_BCSQ(mut$BCSQ)) |>
 
 # Match BCSQ with mutations in resistance DB
 mut <- mut |>
-  left_join(dplyr::select(db,c(CHROM,aa_chg_bcsq,drug_resistance)),by=c("CHROM","amino_acid_change"="aa_chg_bcsq")) |>
-  left_join(dplyr::select(db,c(CHROM,dna_chg_bcsq,drug_resistance)),by=c("CHROM","dna_change"="dna_chg_bcsq")) |>
+  left_join(dplyr::select(db,c(CHROM,aa_chg_bcsq,drug_resistance,drug_resistance_type)),by=c("CHROM","amino_acid_change"="aa_chg_bcsq")) |>
+  left_join(dplyr::select(db,c(CHROM,dna_chg_bcsq,drug_resistance,drug_resistance_type)),by=c("CHROM","dna_change"="dna_chg_bcsq")) |>
   unite("drug_resistance",drug_resistance.x,drug_resistance.y,sep = ",",na.rm = TRUE) |>
+  unite("drug_resistance_type",drug_resistance_type.x,drug_resistance_type.y,sep = ",",na.rm = TRUE) |>
   mutate(drug_resistance = case_when(
     is.na(drug_resistance) ~ "-",
     drug_resistance == "" ~ "-",
@@ -109,9 +109,9 @@ mut <- mut |>
 
 
 
-# Contenu du ficher VCF
+# Mutations détéctées
 
-Cette section affiche la liste de toute les mutations detéctés (contenu du fichier VCF),
+Cette section affiche la liste de des mutations detéctées (contenu du fichier VCF),
 et la confronte à la database de résistances connues.
 
 ```{r}
@@ -120,10 +120,9 @@ MUT <- mut |>
   arrange(CHROM,POS)
 
 MUT |>
-  dplyr::select(CHROM,dna_change,gene,amino_acid_change,VarProportion,consequence,drug_resistance,AF) |>
-  mutate(across(!VarProportion,~str_trunc(.,width=20))) |>
-  mutate(VarProportion = highlight_cell_spec(VarProportion,AF<0.5,bg="#2E8B57")) |>
-  select(!AF) |>
+  dplyr::select(CHROM,dna_change,gene,amino_acid_change,consequence,drug_resistance,drug_resistance_type,read_depth=DP,allele_freq=AF) |>
+  mutate(across(c(dna_change,amino_acid_change),~str_trunc(.,width=25))) |>
+  mutate(allele_freq = highlight_cell_spec(sprintf("%.1f%%",100*allele_freq),allele_freq<0.5,bg="#2E8B57")) |>
   mutate(consequence = highlight_cell_spec(consequence,consequence!="synonymous")) |>
   kable_style(caption="Liste des mutations identifiées par rapport aux références")
 ```
@@ -134,10 +133,10 @@ Légende:
  - `dna_change`: Position de la mutation sur le génome.
  - `gene`: Nom du gène impacté par la mutation.
  - `amino_acid_change`: Position de la mutation sur la protéine.
- - `VarProportion`: Proportion des reads portant la mutation.
  - `consequence`: Classification de la mutation (synonymous, missense, stop_gained, frameshift, inframe_shift).
  - `drug_resistance`: Nom de l'antiviral pour lequel la mutation confére une résitance.
-
+ - `read_depth``: Profondeur de sequencage au niveau de la mutation.
+ - `allele_freq`: Proportion des reads portant la mutation.
 
 
 # Résumé Graphique {.tabset}
@@ -165,29 +164,39 @@ mut |>
 
 # Génération du rapport clinique
 
-```{r include=FALSE}
+```{r echo=FALSE}
 library(officer)
 docx_template <- file.path(params$input_db_dir,"template.docx")
 
 MUT <- mut |> 
   filter(str_starts(BCSQ,"@",negate = TRUE)) |>
   filter(consequence != "synonymous") |>
-  dplyr::select(CHROM,dna_change,amino_acid_change,VarProportion,consequence,drug_resistance) %>%
-  split(factor(.$CHROM,seqlevels(fa)))
+  mutate(mutation = case_when(
+    is.na(amino_acid_change) ~ str_trunc(str_to_lower(dna_change),20),
+    TRUE ~ amino_acid_change
+  )) |>
+  mutate(mutation = sprintf("%s (%.1f%%, %s)",mutation,100*AF,consequence)) |>
+  dplyr::select(gene,Antiviral=drug_resistance,"Mutations (% échantillon portant la mutation)"=mutation,Type=drug_resistance_type) |>
+  arrange(gene,desc(Antiviral))
 
+kable_style(MUT,caption="")
+```
+
+
+```{r include=FALSE}
 doc <- read_docx(docx_template) |>
   body_replace_all_text("SMPLLABEL",sub("","",basename(params$input_vcf_file)),fixed = TRUE)
 
+MUT <- split(MUT,factor(MUT$gene,seqlevels(fa)))
 for(i in names(MUT)) {
   marker <- paste0("RES-",i)
   doc <- doc |>
     cursor_reach(marker) |>
     body_replace_all_text(marker,"",fixed = TRUE,only_at_cursor = TRUE) |>
-    body_add_table(select(MUT[[i]],!CHROM),style="StyleTableauRes")
+    body_add_table(select(MUT[[i]],!gene),style="StyleTableauRes")
 }
 if (!is.null(params$output_docx_report)) {
-  print(doc,target=paste0(params$input_vcf_file,".docx"))
+  print(doc,target=params$output_docx_report)
 }
-  
 ```
 

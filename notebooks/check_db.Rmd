@@ -16,6 +16,8 @@ Ce rapport vérifie la cohérence de la base de donnée de résistance.
 
 # FAQ
 
+ - La database d'entrée est un fichier excel avec une feuille nommée `resistances`, qui contient les colonnes `strain_id`, `drug_resistance`, `drug_resistance_type`. La colonne `strain_id` décrit une mutation avec le format: `X0Y` (amino-acid mutation) ou `x0y` (DNA mutation); `X` est la séquence de l'amino-acide située à la position `0` de la protéine de référence; et qui devient `Y` dans le mutant.
+
  - Dans le cas ou on a une deletion en base 1 de la séquence de référence, il faut inscrire dans la database la base après la position 1 e.g: `ATGC1C` pour une deletion de `ATG` sur la base 1.
  
  - Dans le cas d'une deletion/insertion inframe, il est possible d'écrire la mutation sous forme amino-acide dans la database avec le même format que pour les mutations DNA. Par exemple pour l'insertion d'un S après le N en position 23: `UL23-HHV1:N23NS`.
@@ -111,7 +113,7 @@ db_check <- function(db_res,fa_file) {
 # Load the database from xlsx
 ```{r}
 vars <- c("CHROM","AA.POS","AA.REF","AA.ALT","CODON_LOC","CODON.FASTA","AA.FASTA","is_valid_strain_id","is_valid_ref","aa_chg_bcsq","is_valid_transition")
-db_res <- readxl::read_xlsx(params$input_db_xlsx,"resistances") |>
+db_res <- openxlsx::read.xlsx(params$input_db_xlsx,"resistances") |>
   select(!any_of(vars)) |>
   db_check(params$reference_fasta)
 ```
