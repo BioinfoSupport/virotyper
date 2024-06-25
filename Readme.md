@@ -21,7 +21,7 @@ DEALINGS IN THE SOFTWARE.
 # Locally
 
 ```bash
-repo2docker ./
+repo2docker --Repo2Docker.platform=linux/amd64 ./
 ```
 
 ```bash

@@ -1,5 +1,5 @@
 ---
-title: "Rapport d'analyse de mutations conférant des résistances"
+title: "Détéction des mutations conférant des résistances"
 output:
   html_document: 
     theme: default
@@ -22,7 +22,7 @@ donnée de mutations conférants des résistances à des antiviraux.
 
 **Requirements:** Le fihcier VCF d'entré doit contenir les champs INFO/DP,INFO/AF,INFO/BCSQ.
 
-**Note:** Le rapport du fichier BAM correspondant au fichier VCF devrait être inspécté avant celui-ci pour s'assurer que les séquences de référence sont entièrement couverte par le séquencage. En effet, il est possible que des mutations soient manquées dans le VCF dans des mutations faiblement couverte en séquencage. 
+**Note:** Le rapport du fichier BAM correspondant au fichier VCF devrait être inspécté avant celui-ci pour s'assurer que les séquences de référence sont entièrement couvertes par le séquencage. En effet, il est possible que des mutations soient manquées dans le VCF dans des mutations faiblement couverte en séquencage.
 
  
 ```{r setup, include=FALSE}
@@ -76,10 +76,8 @@ query_vcf <- function(vcf_file) {
 
 
 # TODO
- - tester la situation ou la deteltion est en base 1: comment representer cela dans bcf ? => il faut mettre la base après avec la position 1 eg: ATGC1C
- - Verifier si on peut ecrire les deletion/insertion inframe en amino-acid dans la DB => oui avec le même format que pour les DNA
- - Ajouter dans le check des resistance le check des stops
 
+ - Ajouter dans le check des resistance le check des stops
 
 ```{r,message=FALSE}
 # Load data

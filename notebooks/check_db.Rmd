@@ -14,6 +14,12 @@ params:
 
 Ce rapport vérifie la cohérence de la base de donnée de résistance.
 
+# FAQ
+
+ - Dans le cas ou on a une deletion en base 1 de la séquence de référence, il faut inscrire dans la database la base après la position 1 e.g: `ATGC1C` pour une deletion de `ATG` sur la base 1.
+ 
+ - Dans le cas d'une deletion/insertion inframe, il est possible d'écrire la mutation sous forme amino-acide dans la database avec le même format que pour les mutations DNA. Par exemple pour l'insertion d'un S après le N en position 23: `UL23-HHV1:N23NS`.
+
  
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = FALSE)

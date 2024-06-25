@@ -1,1 +1,4 @@
 data/
+.Rproj.user/
+.git/
+.DS_Store
