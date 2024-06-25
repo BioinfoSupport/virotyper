@@ -43,9 +43,10 @@ USER ${NB_USER}
 
 ## Install R packages
 RUN Rscript -e '\
-  install.packages(c("tidyverse","rmarkdown","kableExtra","bs4Dash","BiocManager"),Ncpus=4L);\
+  install.packages(c("tidyverse","rmarkdown","kableExtra","bs4Dash","shinycssloader","openxlsx","officer","BiocManager"),Ncpus=4L);\
   BiocManager::install(c("Biostrings","GenomicAlignments","Rsamtools","GenomicRanges"),Ncpus=4L)'
+RUN Rscript -e 'install.packages(c(),Ncpus=4L);'
 
 
 ## Copy files to home folder
-COPY --chown=${NB_USER} ./ ${HOME}/
+COPY --chown=${NB_USER} ./ /home/${NB_USER}/

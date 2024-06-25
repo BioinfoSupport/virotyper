@@ -1,4 +1,5 @@
-data/
+data/HHV2
+data/HHV1/bam
 .Rproj.user/
 .git/
 .DS_Store
