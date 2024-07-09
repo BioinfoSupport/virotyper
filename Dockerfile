@@ -39,13 +39,13 @@ RUN curl -kL https://github.com/lh3/minimap2/releases/download/v2.27/minimap2-2.
   && rm -rf /tmp/minimap2-2.27/
 
 
+RUN /rocker_scripts/install_shiny_server.sh
+
 USER ${NB_USER}
 
 ## Install R packages
-RUN Rscript -e '\
-  install.packages(c("tidyverse","rmarkdown","kableExtra","bs4Dash","shinycssloader","openxlsx","officer","BiocManager"),Ncpus=4L);\
-  BiocManager::install(c("Biostrings","GenomicAlignments","Rsamtools","GenomicRanges"),Ncpus=4L)'
-RUN Rscript -e 'install.packages(c(),Ncpus=4L);'
+RUN install2.r --error --skipinstalled -n 4 markdown kableExtra bs4Dash openxlsx officer BiocManager
+RUN Rscript -e 'BiocManager::install(c("Rsamtools","GenomicAlignments","Biostrings","GenomicRanges"),Ncpus=4L)'
 
 
 ## Copy files to home folder

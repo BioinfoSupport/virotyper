@@ -3,7 +3,7 @@ title: "Rapport d'analyse d'un fichier BAM"
 output:
   html_document: 
     theme: default
-    highlight: espresso  
+    highlight: espresso
 params:
   #input_bam_file: "data/HHV1/bam/240222-HE.HHV1.filt.10k.bam"
   #input_bam_file: data/HHV1/fasta/230330_40970504_BLC_HSV1.asm.bam
