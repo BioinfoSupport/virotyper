@@ -10,7 +10,8 @@ params:
   #input_bam_file: "data/HHV1/fasta/test_inframe_indel.asm.bam"
   #input_bam_file: "data/HHV1/fasta/test_inframe_indel.asm.bam"
   #input_bam_file: "data/HHV1/fasta/test_no_mutation.asm.bam"
-  input_bam_file: "data/HHV1/vcf/RUN0_240618_0123456789_HHV1_AA.sorted.bam"
+  #input_bam_file: "data/HHV1/vcf/RUN0_240618_0123456789_HHV1_AA.sorted.bam"
+  input_bam_file: "data/HHV1/bam/240222-HE.HHV1.bam"
 ---
 
 
@@ -110,10 +111,12 @@ Note:
 
 ## Reads
 ```{r}
-ggplot(aln) + 
-  geom_point(aes(x=reads_sizes,y=reads_avg_qual,color=contig)) + 
+ggplot(aln,aes(x=reads_sizes,y=reads_avg_qual,color=contig)) + 
+  geom_point(size=1) + 
   xlab("Read size (bp)") + ylab("Average read quality") +
-  ggtitle("Read quality / Read size") + theme(legend.position="bottom")
+  ggtitle("Read quality / Read size") + theme(legend.position="bottom") + 
+  scale_color_brewer(palette = "Set1") +
+  theme_bw()
 ```
 
 
@@ -124,9 +127,10 @@ as(cov,"GRanges") |>
   as.data.frame() |>
   ggplot() + 
     facet_wrap(seqnames~.,scales = "free",ncol=1) +
-    geom_segment(aes(x=start,xend=end,y=score,yend=score)) + 
+    geom_rect(aes(xmin=start-0.5,xmax=end+0.5,ymin=0,ymax=score),fill="black",color="black") + 
     ylab("read depth") + xlab("genomic position") + expand_limits(y=0) + 
-    ggtitle("Couverture de la reference")
+    ggtitle("Couverture de la reference") + 
+    theme_bw()
 ```
 
 

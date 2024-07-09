@@ -44,7 +44,7 @@ RUN /rocker_scripts/install_shiny_server.sh
 USER ${NB_USER}
 
 ## Install R packages
-RUN install2.r --error --skipinstalled -n 4 markdown kableExtra bs4Dash openxlsx officer BiocManager
+RUN install2.r --error --skipinstalled -n 4 markdown kableExtra shinyjs openxlsx officer BiocManager 
 RUN Rscript -e 'BiocManager::install(c("Rsamtools","GenomicAlignments","Biostrings","GenomicRanges"),Ncpus=4L)'
 
 
