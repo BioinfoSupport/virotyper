@@ -176,16 +176,44 @@ MUT <- mut |>
     TRUE ~ amino_acid_change
   )) |>
   mutate(mutation = sprintf("%s (%.1f%%, %s)",mutation,100*AF,consequence)) |>
-  dplyr::select(gene,Antiviral=drug_resistance,"Mutations (% échantillon portant la mutation)"=mutation,Type=drug_resistance_type) |>
-  arrange(gene,desc(Antiviral))
+  arrange(gene,POS) |>
+  dplyr::select(gene,Antiviral=drug_resistance,"Mutation (% échantillon portant la mutation)"=mutation,"Type de mutation"=drug_resistance_type) |>
+  distinct()
 
 kable_style(MUT,caption="")
 ```
 
 
 ```{r include=FALSE}
+filepat <- "^([^_]+)_([^_]+)_([^_]+)_([^_]+)_([^\\.]+)(\\..*)"
+filemeta <- tibble(
+  filename = basename(params$input_vcf_file),
+  run_id = str_extract(filename,filepat,group = 1),
+  run_date = ymd(str_extract(filename,filepat,group = 2)),
+  tube_id = str_extract(filename,filepat,group = 3),
+  virus = str_extract(filename,filepat,group = 4),
+  initials_patient = str_extract(filename,filepat,group = 5),
+  extension = str_extract(filename,filepat,group = 6),
+)
+
 doc <- read_docx(docx_template) |>
-  body_replace_all_text("SMPLLABEL",sub("","",basename(params$input_vcf_file)),fixed = TRUE)
+  body_replace_all_text("SEQDATE",format(filemeta$run_date,"%Y-%m-%d"),fixed = TRUE) |>
+  body_replace_all_text("IDTUBE",filemeta$tube_id,fixed = TRUE) |>
+  body_replace_all_text("IDPATIENT",filemeta$initials_patient,fixed = TRUE)
+
+profils <- mut |> 
+  filter(!drug_resistance_type %in% c("-",NA,""),!drug_resistance %in% c("-",NA,"")) |> 
+  group_by(drug_resistance_type) |> 
+  distinct(drug_resistance) |>
+  summarise(Antiviral=str_flatten_comma(drug_resistance))
+
+Rprofil <- filter(profils,str_starts(drug_resistance_type,"R")) |> pull()
+Sprofil <- filter(profils,str_starts(drug_resistance_type,"S")) |> pull()
+if (is_empty(Rprofil)) Rprofil <- ""
+if (is_empty(Sprofil)) Sprofil <- ""
+doc <- body_replace_all_text(doc,"LISTERESISTANCES", Rprofil, fixed = TRUE)
+doc <- body_replace_all_text(doc,"LISTESUSCEPTIBLES", Sprofil, fixed = TRUE) 
+
 
 MUT <- split(MUT,factor(MUT$gene,seqlevels(fa)))
 for(i in names(MUT)) {
