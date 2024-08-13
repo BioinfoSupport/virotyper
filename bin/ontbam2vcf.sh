@@ -6,9 +6,9 @@ function usage() {
 
     DESCRIPTION
       Wrapper arround BCFTOOLS to perform variant calling on a BAM file 
-      containing an alignment of an assembly on a reference sequence.
+      containing an alignment of ONT reads on a reference sequence.
       The BAM file may be generated with command:
-      minimap2 -cx asm5 -z1000000 -p 0.1 -Y --cs -a <ref.fasta> <assembly.fasta> | samtools sort -o <alignment.bam> -
+      minimap2 -cx ont -z1000000 -p 0.1 -Y --cs -a <ref.fasta> <assembly.fasta> | samtools sort -o <alignment.bam> -
 
     OPTIONS
       --ref-fasta   Path to FASTA containing the reference sequence

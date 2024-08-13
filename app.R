@@ -23,6 +23,7 @@ shinyApp(
     ),
     nav_panel(
       title = "VCF",
+      tags$p("Use this form to generate a resistance report from a VCF file."),
       inputPanel(
         title = "Generate a report from a VCF containing variants",
         selectInput("resistance_db","Resistance database",choices = c("HSV1"="data/HHV1/db","HSV2"="data/HHV2/db")),
@@ -34,21 +35,26 @@ shinyApp(
     ),
     nav_panel(
       title = "BAM",
-      p("Use this form to generate a report from a BAM file containing ONT reads aligned on a reference"),
+      tags$p("Use this form to generate a report from a BAM file containing ONT reads aligned on a reference"),
       inputPanel(
         fileInput("bam_file","BAM file",accept = ".bam",multiple = FALSE,placeholder = "Upload BAM file of aligned reads on the reference",width="100%")
       ),
       shinyjs::disabled(actionButton("btn_make_bam_report","Generate BAM Report",icon = icon("cog"))),
       shinyjs::disabled(actionButton("btn_view_bam_report","View BAM Report",icon = icon("eye")))
-    )
-    # tabPanel(
-    #   title="FASTA",
-    #   p("Map given consensus FASTA file and detect variant relatively to the reference"),
+    ),
+    nav_panel(
+      title="FASTA",
+      markdown("Use this form to detect mutations in a consensus sequence relatively to a reference database.
+              This app align the consensus sequences in the given FASTA file on the reference sequence using `minimap2`, and 
+              detect the variants with `bcftools`."),
+      inputPanel(
+        tags$p(tags$b("Not available yet !!!"))
+      )
     #   selectInput("resistance_db","Resistance database",choices = c("HSV1","HSV2")),
     #   textAreaInput("fasta_seq","DNA sequences (FASTA)",placeholder = ">UL23\nATGCTCATGACTGCATCTA...\n>UL30\nATGCTCATGACTGCATCTA...",height = "400px"),
     #   actionButton("make_doc","Report.doc",icon = icon("download")),
     #   shinycssloaders::withSpinner(textOutput("terminal_stdout",container = pre),type = 1)
-    # )
+    )
   ),
 
   server = function(input, output, session) {

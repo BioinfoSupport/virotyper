@@ -44,11 +44,11 @@ ls data/HHV1/bam/*.bam | grep -v filt | sed s/.bam$/.filt.10k.report/ | xargs ma
 ls data/HHV2/bam/*.bam | grep -v filt | sed s/.bam$/.filt.10k.report/ | xargs make -j6 DB_DIR=data/HHV2/db
 
 # Run variant calling for all FASTA files in a directory
-ls data/HHV1/fasta/*.fasta | sed s/.fasta$/.asm.report/ | xargs make -kj6
+ls data/HHV1/fasta/*.fasta | sed s/$/.all/ | xargs make -kj6
 ls data/HHV2/fasta/*.fasta | sed s/.fasta$/.asm.report/ | xargs make -kj6 DB_DIR=data/HHV2/db
 
-
-ls data/HHV1/vcf/*.vcf.gz | sed s/.vcf$/.vcf.report/ | xargs make -kj6
+# Generate reports for all VCF files in a directory
+ls data/HHV1/vcf/*.vcf.gz data/HHV1/vcf/*.bam | sed s/$/.all/ | xargs make -kj6
 ```
 
 
@@ -56,7 +56,7 @@ ls data/HHV1/vcf/*.vcf.gz | sed s/.vcf$/.vcf.report/ | xargs make -kj6
 
 # Build the image
 ```bash
-docker build -t unigebsp/virotyper ./container
+docker build -t unigebsp/virotyper ./
 ```
 
 
