@@ -5,12 +5,11 @@ output:
     theme: default
     highlight: espresso 
 params:
-  #reference_fasta: "data/HHV1/db/ref.fasta"
-  #input_db_xlsx: "data/HHV1/db/2024-08-22_hsv1.resistance.xlsx"
-  #output_db_xlsx: "data/HHV1/db/2024-08-22_hsv1.resistance.chk.xlsx"
-  reference_fasta: "data/HHV2/db/ref.fasta"
-  input_db_xlsx: "data/HHV2/db/2024-08-15_HSV2_DB_AM.xlsx"
-  output_db_xlsx: "data/HHV2/db/2024-08-15_HSV2_DB_AM.chk.xlsx"
+  #reference_fasta: "data/db/hsv1/ref.fasta"
+  #input_db_xlsx: "data/db/hsv1/resistances.chk.xlsx"
+  reference_fasta: "data/db/hsv2/ref.fasta"
+  input_db_xlsx: "data/db/hsv2/resistances.chk.xlsx"
+  output_db_xlsx: ""
 ---
 
 
@@ -136,16 +135,23 @@ filter(db_res,is_aa_mutation,is_valid_ref_aa,!is_valid_snp_transition) |>
   select(strain_id,AA.POS,AA.FASTA,CODON.FASTA) |>
   distinct() |>
   knitr::kable(caption="Liste des mutations où l'amino-acide cible ne peut être obtenu par un SNP")
+
+c("strain_id","drug","mutation_type") |>
+  setdiff(names(db_res)) |>
+  enframe(name = NULL,value = "colname") |>
+  knitr::kable(caption="Liste des colonnes manquantes")
 ```
 
 
 
 
-
-
-
-# Generate excel of the verified database
+## Generated output
 ```{r}
-openxlsx::write.xlsx(list(resistances=db_res),params$output_db_xlsx,overwrite = TRUE)
+if (!is.null(params$output_db_xlsx) && (params$output_db_xlsx!="")) {
+  openxlsx::write.xlsx(list(resistances=db_res),params$output_db_xlsx,overwrite = TRUE)  
+  message(str:glue("Name of the generated excel file: {params$output_db_xlsx}"))
+} else {
+  message("No output generated")  
+}
 ```
 

@@ -1,6 +1,6 @@
 ##gff-version 3
-##source-version rtracklayer 1.58.0
-##date 2024-04-23
+##source-version rtracklayer 1.64.0
+##date 2024-08-22
 UL23-HHV1	rtracklayer	gene	1	1131	.	+	.	biotype=protein_coding;Name=UL23-HHV1;ID=gene:UL23-HHV1;
 UL30-HHV1	rtracklayer	gene	1	3708	.	+	.	biotype=protein_coding;Name=UL30-HHV1;ID=gene:UL30-HHV1;
 UL23-HHV1	rtracklayer	transcript	1	1131	.	+	.	biotype=protein_coding;Name=UL23-HHV1;ID=transcript:UL23-HHV1;Parent=gene:UL23-HHV1
