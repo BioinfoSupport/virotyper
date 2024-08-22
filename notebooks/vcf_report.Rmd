@@ -5,14 +5,14 @@ output:
     theme: default
     highlight: espresso
 params:
-  input_db_dir: "data/HHV1/db"
+  input_db_dir: "data/db/hsv1"
   #input_vcf_file: "data/HHV1/bam/240222-HE.HHV1.filt.10k.vcf.gz"
   #input_vcf_file: data/HHV1/fasta/230330_40970504_BLC_HSV1.asm.vcf.gz
   #input_vcf_file: "data/HHV1/fasta/test_inframe_indel.asm.vcf.gz"
   #input_vcf_file: "data/HHV1/fasta/test_inframe_indel.asm.vcf.gz"
   #input_vcf_file: "data/HHV1/fasta/test_no_mutation.asm.vcf.gz"
   input_vcf_file: "data/HHV1/vcf/RUN0_240618_0123456789_HHV1_AA.vcf.gz"
-  output_docx_report: "out.docx"
+  output_docx_report: ""
 ---
 
 
@@ -90,14 +90,14 @@ mut <- bind_cols(mut,parse_BCSQ(mut$BCSQ)) |>
 
 # Match BCSQ with mutations in resistance DB
 mut <- mut |>
-  left_join(dplyr::select(db,c(CHROM,aa_chg_bcsq,drug_resistance,drug_resistance_type)),by=c("CHROM","amino_acid_change"="aa_chg_bcsq")) |>
-  left_join(dplyr::select(db,c(CHROM,dna_chg_bcsq,drug_resistance,drug_resistance_type)),by=c("CHROM","dna_change"="dna_chg_bcsq")) |>
-  unite("drug_resistance",drug_resistance.x,drug_resistance.y,sep = ",",na.rm = TRUE) |>
-  unite("drug_resistance_type",drug_resistance_type.x,drug_resistance_type.y,sep = ",",na.rm = TRUE) |>
-  mutate(drug_resistance = case_when(
-    is.na(drug_resistance) ~ "-",
-    drug_resistance == "" ~ "-",
-    TRUE ~ drug_resistance))
+  left_join(dplyr::select(db,c(CHROM,aa_chg_bcsq,drug,mutation_type)),by=c("CHROM","amino_acid_change"="aa_chg_bcsq")) |>
+  left_join(dplyr::select(db,c(CHROM,dna_chg_bcsq,drug,mutation_type)),by=c("CHROM","dna_change"="dna_chg_bcsq")) |>
+  unite("drug",drug.x,drug.y,sep = ",",na.rm = TRUE) |>
+  unite("mutation_type",mutation_type.x,mutation_type.y,sep = ",",na.rm = TRUE) |>
+  mutate(drug = case_when(
+    is.na(drug) ~ "-",
+    drug == "" ~ "-",
+    TRUE ~ drug))
 ```
 
 
@@ -120,7 +120,7 @@ MUT <- mut |>
   arrange(CHROM,POS)
 
 MUT |>
-  dplyr::select(CHROM,dna_change,gene,amino_acid_change,consequence,drug_resistance,drug_resistance_type,read_depth=DP,allele_freq=AF) |>
+  dplyr::select(CHROM,dna_change,gene,amino_acid_change,consequence,drug,mutation_type,read_depth=DP,allele_freq=AF) |>
   mutate(across(c(dna_change,amino_acid_change),~str_trunc(.,width=25))) |>
   mutate(allele_freq = highlight_cell_spec(sprintf("%.1f%%",100*allele_freq),allele_freq<0.5,bg="#2E8B57")) |>
   mutate(consequence = highlight_cell_spec(consequence,consequence!="synonymous")) |>
@@ -134,7 +134,7 @@ Légende:
  - `gene`: Nom du gène impacté par la mutation.
  - `amino_acid_change`: Position de la mutation sur la protéine.
  - `consequence`: Classification de la mutation (synonymous, missense, stop_gained, frameshift, inframe_shift).
- - `drug_resistance`: Nom de l'antiviral pour lequel la mutation confére une résitance.
+ - `drug`: Nom de l'antiviral pour lequel la mutation confére une résitance.
  - `read_depth``: Profondeur de sequencage au niveau de la mutation.
  - `allele_freq`: Proportion des reads portant la mutation.
 
@@ -148,7 +148,7 @@ mut |>
   filter(str_starts(BCSQ,"@",negate = TRUE)) |>
   ggplot() + 
     facet_wrap(CHROM~.,scales = "free",ncol=1) +
-    geom_jitter(aes(x=POS,y=consequence,size=AF,color=drug_resistance),alpha=0.5,width = 0,height=0.3) +
+    geom_jitter(aes(x=POS,y=consequence,size=AF,color=drug),alpha=0.5,width = 0,height=0.3) +
     #ggrepel::geom_label_repel(aes(x=start,y=consequence,label=DNA_CHANGE),size=2) +
     geom_segment(aes(y="_genome",yend=after_stat(y),x=1,xend=seqlengths),data=as.data.frame(seqinfo(fa)) |> rownames_to_column("CHROM")) +
     scale_size_area(limits=c(0,1),labels=scales::percent) + 
@@ -177,7 +177,7 @@ MUT <- mut |>
   )) |>
   mutate(mutation = sprintf("%s (%.1f%%, %s)",mutation,100*AF,consequence)) |>
   arrange(gene,POS) |>
-  dplyr::select(gene,Antiviral=drug_resistance,"Mutation (% échantillon portant la mutation)"=mutation,"Type de mutation"=drug_resistance_type) |>
+  dplyr::select(gene,Antiviral=drug,"Mutation (% échantillon portant la mutation)"=mutation,"Type de mutation"=mutation_type) |>
   distinct()
 
 kable_style(MUT,caption="")
@@ -202,13 +202,13 @@ doc <- read_docx(docx_template) |>
   body_replace_all_text("IDPATIENT",filemeta$initials_patient,fixed = TRUE)
 
 profils <- mut |> 
-  filter(!drug_resistance_type %in% c("-",NA,""),!drug_resistance %in% c("-",NA,"")) |> 
-  group_by(drug_resistance_type) |> 
-  distinct(drug_resistance) |>
-  summarise(Antiviral=str_flatten_comma(drug_resistance))
+  filter(!mutation_type %in% c("-",NA,""),!drug %in% c("-",NA,"")) |> 
+  group_by(mutation_type) |> 
+  distinct(drug) |>
+  summarise(Antiviral=str_flatten_comma(drug))
 
-Rprofil <- filter(profils,str_starts(drug_resistance_type,"R")) |> pull()
-Sprofil <- filter(profils,str_starts(drug_resistance_type,"S")) |> pull()
+Rprofil <- filter(profils,str_starts(mutation_type,"R")) |> pull()
+Sprofil <- filter(profils,str_starts(mutation_type,"S")) |> pull()
 if (is_empty(Rprofil)) Rprofil <- ""
 if (is_empty(Sprofil)) Sprofil <- ""
 doc <- body_replace_all_text(doc,"LISTERESISTANCES", Rprofil, fixed = TRUE)
@@ -223,7 +223,7 @@ for(i in names(MUT)) {
     body_replace_all_text(marker,"",fixed = TRUE,only_at_cursor = TRUE) |>
     body_add_table(select(MUT[[i]],!gene),style="StyleTableauRes")
 }
-if (!is.null(params$output_docx_report)) {
+if (!is.null(params$output_docx_report) && (params$output_docx_report!="")) {
   print(doc,target=params$output_docx_report)
 }
 ```

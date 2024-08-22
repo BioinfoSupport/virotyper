@@ -5,11 +5,12 @@ output:
     theme: default
     highlight: espresso 
 params:
-  #reference_fasta: "data/db/hsv1/ref.fasta"
-  #input_db_xlsx: "data/db/hsv1/resistances.chk.xlsx"
-  reference_fasta: "data/db/hsv2/ref.fasta"
-  input_db_xlsx: "data/db/hsv2/resistances.chk.xlsx"
-  output_db_xlsx: ""
+  reference_fasta: "data/db/hsv1/ref.fasta"
+  input_db_xlsx: "data/db/hsv1/old/2024-08-22_hsv1.resistance.xlsx"
+  output_db_xlsx: "data/db/hsv1/resistances.chk.xlsx"
+  #reference_fasta: "data/db/hsv2/ref.fasta"
+  #input_db_xlsx: "data/db/hsv2/old/2024-08-15_HSV2_DB_AM.xlsx"
+  #output_db_xlsx: "data/db/hsv2/resistances.chk.xlsx"
 ---
 
 
@@ -114,7 +115,7 @@ db_check <- function(db_res,fa_file) {
 
 # Load the database from xlsx
 ```{r}
-vars <- c("CHROM","AA.POS","AA.REF","AA.ALT","CODON_LOC","CODON.FASTA","AA.FASTA","is_valid_strain_id","is_valid_ref_aa","aa_chg_bcsq","is_valid_transition","is_valid_overall","is_dna_mutation","is_valid_ref_dna","DNA.FASTA","is_aa_mutation","is_valid_snp_transition")
+vars <- c("CHROM","AA.POS","AA.REF","AA.ALT","CODON_LOC","CODON.FASTA","AA.FASTA","is_valid_strain_id","is_valid_ref_aa","aa_chg_bcsq","is_valid_transition","is_valid_overall","is_dna_mutation","is_valid_ref_dna","DNA.FASTA","is_aa_mutation","is_valid_snp_transition","dna_chg_bcsq")
 db_res <- openxlsx::read.xlsx(params$input_db_xlsx,"resistances") |>
   select(!any_of(vars)) |>
   db_check(params$reference_fasta)
@@ -149,7 +150,7 @@ c("strain_id","drug","mutation_type") |>
 ```{r}
 if (!is.null(params$output_db_xlsx) && (params$output_db_xlsx!="")) {
   openxlsx::write.xlsx(list(resistances=db_res),params$output_db_xlsx,overwrite = TRUE)  
-  message(str:glue("Name of the generated excel file: {params$output_db_xlsx}"))
+  message(str_glue("Name of the generated excel file: {params$output_db_xlsx}"))
 } else {
   message("No output generated")  
 }
