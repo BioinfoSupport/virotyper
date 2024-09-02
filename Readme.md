@@ -20,6 +20,11 @@ docker build -t virotyper ./
 
 # Run a bash in the container
 docker run --rm -it -v $(pwd):/data --workdir /data virotyper bash
+
+# Generate a report for a VCF/BAM/FASTA file
+make DB_ID=hsv2 <filename>.vcf.all
+make DB_ID=hsv2 <filename>.bam.all
+make DB_ID=hsv1 <filename>.fasta.all
 ```
 
 
