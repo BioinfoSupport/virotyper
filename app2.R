@@ -1,10 +1,40 @@
 library(bslib)
 library(shiny)
 library(bsicons)
+library(tidyverse)
 
 # Accept up to 5Gb file upload
 options(shiny.maxRequestSize=5000*1024^2)
 
+
+TerminalTask <- R6::R6Class(
+  "TerminalTask",
+  inherit = shiny::ExtendedTask,
+  public = list(
+    fifo = NULL, # FIFO where stdin and stdout are redirected
+    fifo_con = NULL,
+    lines = character(0), # Terminal content (what has been read from the fifo)
+    
+    initialize = function() {
+      self$fifo <- tempfile(fileext = ".fifo") 
+      self$fifo_con <- fifo(self$fifo,"w+") # Create the FIFO
+      super$initialize(function(cmd) { # Call superclass
+        cmd <- stringr::str_glue("({cmd}) &> {self$fifo}") # Adapt command line to redirect output to the FIFO
+        promises::future_promise(system(cmd,intern=FALSE))
+      })
+    },
+    
+    finalize = function() {
+      close(self$fifo_con)
+    },
+    
+    # Get current terminal content
+    current_content = function() {
+      self$lines <- c(self$lines,readLines(self$fifo_con))
+      self$lines
+    }
+  )
+)
 
 init_workdir <- function(workdir=tempfile()) {
   message(workdir)
@@ -29,7 +59,7 @@ init_workdir <- function(workdir=tempfile()) {
 ui_panel_db <- function() {
   inputPanel(
     title = "Select Resistance Database",
-    uiOutput("selected_db_dropdown")
+    selectInput("resistance_db",list("Select Resistance DB (or ",actionLink("show_upload_db_dialog","upload a new DB"),")"),choices=character(0),)
   )
 }
 
@@ -95,12 +125,11 @@ server <- function(input, output, session) {
   # Resistance Database Selection and Upload logic
   #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
   available_dbs <- reactiveVal(list.files(file.path(workdir,"data/db")))
-  
-  output$selected_db_dropdown <- renderUI({
-    req(available_dbs())
-    selectInput("resistance_db",list("Select Resistance DB (or ",actionLink("show_upload_db_dialog","upload a new DB"),")"),choices=available_dbs())
+
+  observeEvent(available_dbs(),{
+    updateSelectInput(inputId="resistance_db",choices=available_dbs())
   })
-  
+
   observeEvent(input$show_upload_db_dialog,{
     showModal(modalDialog(
       title = "DB upload",
