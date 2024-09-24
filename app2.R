@@ -7,35 +7,6 @@ library(tidyverse)
 options(shiny.maxRequestSize=5000*1024^2)
 
 
-TerminalTask <- R6::R6Class(
-  "TerminalTask",
-  inherit = shiny::ExtendedTask,
-  public = list(
-    fifo = NULL, # FIFO where stdin and stdout are redirected
-    fifo_con = NULL,
-    lines = character(0), # Terminal content (what has been read from the fifo)
-    
-    initialize = function() {
-      self$fifo <- tempfile(fileext = ".fifo") 
-      self$fifo_con <- fifo(self$fifo,"w+") # Create the FIFO
-      super$initialize(function(cmd) { # Call superclass
-        cmd <- stringr::str_glue("({cmd}) &> {self$fifo}") # Adapt command line to redirect output to the FIFO
-        promises::future_promise(system(cmd,intern=FALSE))
-      })
-    },
-    
-    finalize = function() {
-      close(self$fifo_con)
-    },
-    
-    # Get current terminal content
-    current_content = function() {
-      self$lines <- c(self$lines,readLines(self$fifo_con))
-      self$lines
-    }
-  )
-)
-
 init_workdir <- function(workdir=tempfile()) {
   message(workdir)
   
@@ -73,7 +44,8 @@ ui_panel_vcf <- function() {
       fileInput("vcf_file","VCF file",accept = c(".vcf",".gz"),multiple = FALSE,placeholder = "Upload a VCF file (with INFO fields DP,AF,BCSQ)"),
     ),
     shinyjs::disabled(actionButton("btn_view_vcf_report","View HTML report",icon = icon("eye"))),
-    shinyjs::disabled(downloadButton("btn_dl_vcf_report_docx","Download DOCX Report",icon = icon("download")))
+    shinyjs::disabled(downloadButton("btn_dl_vcf_report_docx","Download DOCX Report",icon = icon("download"))),
+    verbatimTextOutput("term_output")
   )
 }
 
@@ -130,6 +102,7 @@ server <- function(input, output, session) {
     updateSelectInput(inputId="resistance_db",choices=available_dbs())
   })
 
+  # When upload DB link is clicked: show the modal box
   observeEvent(input$show_upload_db_dialog,{
     showModal(modalDialog(
       title = "DB upload",
@@ -155,6 +128,8 @@ server <- function(input, output, session) {
   # VCF panel logic
   #-#-#-#-#-#-#-#-#-#-#
   current_vcf <- reactiveVal(NULL)
+  
+  # When a new VCF file is uploaded
   observeEvent(input$vcf_file,{
     validate(need(is.character(input$vcf_file$datapath),"invalid VCF"))
     shinyjs::disable("btn_view_vcf_report")
@@ -167,7 +142,7 @@ server <- function(input, output, session) {
     current_vcf(current_vcf)
     
     # Generate report
-    cmd <- str_glue("cd '{workdir}' && make '{current_vcf}.html'")
+    cmd <- str_glue("cd '{workdir}' && make DB_ID={input$resistance_db} '{current_vcf}.all'")
     message(cmd)
     withProgress(message="Generate VCF report",{
       system(cmd)
@@ -179,24 +154,22 @@ server <- function(input, output, session) {
   observeEvent(input$btn_view_vcf_report,{
     showModal(modalDialog(
       title = "VCF report",
-      tags$iframe(srcdoc=readLines(str_glue("{current_vcf()}.html")), style='width:100%;height:600px;'),
+      tags$iframe(srcdoc=readLines(str_glue("{current_vcf()}.{input$resistance_db}.html")), style='width:100%;height:600px;'),
       easyClose = TRUE,size = "xl",
       footer = downloadButton("btn_dl_vcf_report_html","Download",icon = icon("download"),class="btn-primary")
     ))
   })
   
   output$btn_dl_vcf_report_html <- downloadHandler(
-    filename = function(){str_glue("{basename(current_vcf())}.html")},
-    content = function(file) {file.copy(str_glue("{current_vcf()}.html"),file)}
+    filename = function(){str_glue("{basename(current_vcf())}.{input$resistance_db}.html")},
+    content = function(file) {file.copy(str_glue("{current_vcf()}.{input$resistance_db}.html"),file)}
   )
   
   output$btn_dl_vcf_report_docx <- downloadHandler(
-    filename = function(){str_glue("{basename(current_vcf())}.docx")},
-    content = function(file) {file.copy(str_glue("{current_vcf()}.docx"),file)}
-  )  
+    filename = function(){str_glue("{basename(current_vcf())}.{input$resistance_db}.docx")},
+    content = function(file) {file.copy(str_glue("{current_vcf()}.{input$resistance_db}.docx"),file)}
+  )
 
-  
-  
 }
 
 shinyApp(ui = ui(),server = server)

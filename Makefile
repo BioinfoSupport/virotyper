@@ -15,7 +15,7 @@ usage:
 	@echo make "<vcf-file>.all                 | Index and generate a variant calling report for a VCF file"
 	@echo make "<bam-file>.all                 | Index and generate a coverage report for a FASTA file"
 	
-%.vcf.gz.all:%.vcf.gz; $(MAKE) $*.vcf.gz.html $*.vcf.gz.docx $*.vcf.gz.csi
+%.vcf.gz.all:%.vcf.gz; $(MAKE) $*.vcf.gz.csi $*.vcf.gz.$(DB_ID).html $*.vcf.gz.$(DB_ID).docx
 
 %.bam.all:%.bam; $(MAKE) $*.bam.html $*.bam.bai
 
@@ -75,8 +75,8 @@ refdb:$(DB_DIR)/ref.fasta $(DB_DIR)/ref.fasta.fai $(DB_DIR)/ref.gff $(DB_DIR)/re
 %.bam.html:%.bam %.bam.bai
 	Rscript -e 'rmarkdown::render("notebooks/bam_report.Rmd",params=list(input_bam_file="$<"),knit_root_dir="$(PWD)",output_dir="$(@D)",output_file="$(@F)")'
 
-%.vcf.gz.html:%.vcf.gz refdb
-	Rscript -e 'rmarkdown::render("notebooks/vcf_report.Rmd",params=list(input_vcf_file="$<",input_db_dir="$(DB_DIR)",output_docx_report="$*.vcf.gz.docx"),knit_root_dir="$(PWD)",output_dir="$(@D)",output_file="$(@F)")'
+%.vcf.gz.$(DB_ID).html %.vcf.gz.$(DB_ID).docx:%.vcf.gz refdb
+	Rscript -e 'rmarkdown::render("notebooks/vcf_report.Rmd",params=list(input_vcf_file="$<",input_db_dir="$(DB_DIR)",output_docx_report="$*.vcf.gz.$(DB_ID).docx"),knit_root_dir="$(PWD)",output_dir="$(@D)",output_file="$(@F)")'
 
 
 #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
@@ -91,9 +91,8 @@ refdb:$(DB_DIR)/ref.fasta $(DB_DIR)/ref.fasta.fai $(DB_DIR)/ref.gff $(DB_DIR)/re
 	  '$*'/*.asm.vcf.gz \
 	  '$*'/*.bai \
     '$*'/*.vcf.gz.csi \
-	  '$*'/*.vcf.gz.html \
-	  '$*'/*.vcf.gz.docx \
-	  '$*'/*.bam.html
+	  '$*'/*.html \
+	  '$*'/*.vcf.gz.docx
 
 
 
