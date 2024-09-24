@@ -176,6 +176,8 @@ MUT <- mut |>
     TRUE ~ amino_acid_change
   )) |>
   mutate(mutation = sprintf("%s (%.1f%%, %s)",mutation,100*AF,consequence)) |>
+  mutate(mutation_type = replace_na(mutation_type,"")) |>
+  mutate(mutation_type = str_replace(mutation_type,"^[\\s]*$","Non-caractérisé")) |>
   arrange(gene,POS) |>
   dplyr::select(gene,Antiviral=drug,"Mutation (% échantillon portant la mutation)"=mutation,"Type de mutation"=mutation_type) |>
   distinct()
