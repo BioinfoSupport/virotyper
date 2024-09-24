@@ -28,9 +28,8 @@ init_workdir <- function(workdir=tempfile()) {
 }
 
 ui_panel_db <- function() {
-  inputPanel(
-    title = "Select Resistance Database",
-    selectInput("resistance_db",list("Select Resistance DB (or ",actionLink("show_upload_db_dialog","upload a new DB"),")"),choices=character(0),)
+  div(class="shiny-input-panel",
+    selectInput("resistance_db",list("Select Resistance DB (or ",actionLink("show_upload_db_dialog","upload a new DB"),")"),choices=character(0),width="100%")
   )
 }
 
@@ -39,12 +38,24 @@ ui_panel_vcf <- function() {
   nav_panel(
     title = "From VCF",
     tags$p("Use this form to generate a resistance report from a VCF file containing already called mutation against the reference database."),
-    inputPanel(
-      title = "Generate a report from a VCF containing variants",
-      fileInput("vcf_file","VCF file",accept = c(".vcf",".gz"),multiple = FALSE,placeholder = "Upload a VCF file (with INFO fields DP,AF,BCSQ)"),
+    div(class="shiny-input-panel",
+      fileInput("vcf_file","Upload a VCF file",accept = c(".vcf",".gz"),multiple = FALSE,placeholder = "Upload a VCF file (with required INFO fields DP,AF,BCSQ)",width = "100%")
     ),
     shinyjs::disabled(actionButton("btn_view_vcf_report","View HTML report",icon = icon("eye"))),
     shinyjs::disabled(downloadButton("btn_dl_vcf_report_docx","Download DOCX Report",icon = icon("download"))),
+    verbatimTextOutput("term_output")
+  )
+}
+
+ui_panel_fasta <- function() {
+  nav_panel(
+    title = "From FASTA",
+    tags$p("Use this form to generate a resistance report from a FASTA file containing an assembly. The assembly will be mapped to against the reference database, and variant calling performed."),
+    div(class="shiny-input-panel",
+        fileInput("fasta_file","Upload a FASTA file",accept = ".fasta",multiple = FALSE,placeholder = "Upload a FASTA file containing your assembly",width = "100%")
+    ),
+    shinyjs::disabled(actionButton("btn_view_fasta_report","View HTML report",icon = icon("eye"))),
+    shinyjs::disabled(downloadButton("btn_dl_fasta_report_docx","Download DOCX Report",icon = icon("download"))),
     verbatimTextOutput("term_output")
   )
 }
@@ -56,19 +67,16 @@ ui <- function() {
     titlePanel(list(icon("biohazard"),"Virotyper"),"Virotyper"),
     shinyjs::useShinyjs(),
 
-    ui_panel_db(),    
+    ui_panel_db(),
+    br(),
     navset_tab(
       nav_panel(
         "Viral Resistance Analysis",
         p("Generate a viral resistance report"),
         navset_tab(
           ui_panel_vcf(),
-          nav_panel("From FASTA"),
-          nav_panel("From BAM")
+          nav_panel("From FASTA")
         )
-      ),
-      nav_panel(
-        "ONT Reads Analysis"
       )
     )
     
