@@ -39,6 +39,7 @@ parse_BCSQ <- function(BCSQ) {
     select(!str)
 }
 
+# Helper function to highlight the cell of a table in the HTML report
 highlight_cell_spec <- function(v,msk,bg="red") {
   kableExtra::cell_spec(v,
       background = ifelse(msk,bg,""),
@@ -47,15 +48,17 @@ highlight_cell_spec <- function(v,msk,bg="red") {
   )
 }
 
-
+# Helper function to format a table
 kable_style <- function(...,escape=FALSE,row.names = FALSE,align = "c") {
   kableExtra::kbl(...,escape = escape,row.names = row.names,align = align) |>
    kableExtra::kable_classic("striped",full_width=FALSE)
   #knitr::kable(...,escape = escape,align = align,row.names = row.names)
 }
 
+# read a VCF file into a table
 query_vcf <- function(vcf_file) {
-  mut <- "bcftools query --format '%CHROM\t%POS\t%REF\t%ALT\t%BCSQ\t%DP\t%AF\n' '{vcf_file}'" |>
+  mut <- "/Users/prados/miniconda3/bin/bcftools query --format '%CHROM\t%POS\t%REF\t%ALT\t%BCSQ\t%DP\t%AF\n' '{vcf_file}'" |>
+  #mut <- "bcftools query --format '%CHROM\t%POS\t%REF\t%ALT\t%BCSQ\t%DP\t%AF\n' '{vcf_file}'" |>
     str_glue() |>
     pipe() |>
     read.table(
@@ -111,7 +114,7 @@ mut <- mut |>
 
 # Mutations détéctées
 
-Cette section affiche la liste de des mutations detéctées (contenu du fichier VCF),
+Cette section affiche la liste des mutations detéctées (contenu du fichier VCF),
 et la confronte à la database de résistances connues.
 
 ```{r}
@@ -164,29 +167,9 @@ mut |>
 
 # Génération du rapport clinique
 
+
 ```{r echo=FALSE}
-library(officer)
-docx_template <- file.path(params$input_db_dir,"template.docx")
-
-MUT <- mut |> 
-  filter(str_starts(BCSQ,"@",negate = TRUE)) |>
-  filter(consequence != "synonymous") |>
-  mutate(mutation = case_when(
-    is.na(amino_acid_change) ~ str_trunc(str_to_lower(dna_change),20),
-    TRUE ~ amino_acid_change
-  )) |>
-  mutate(mutation = sprintf("%s (%.1f%%, %s)",mutation,100*AF,consequence)) |>
-  mutate(mutation_type = replace_na(mutation_type,"")) |>
-  mutate(mutation_type = str_replace(mutation_type,"^[\\s]*$","Non-caractérisé")) |>
-  arrange(gene,POS) |>
-  dplyr::select(gene,Antiviral=drug,"Mutation (% échantillon portant la mutation)"=mutation,"Type de mutation"=mutation_type) |>
-  distinct()
-
-kable_style(MUT,caption="")
-```
-
-
-```{r include=FALSE}
+# Parse filename to extract meta-informations that will be display in the report
 filepat <- "^([^_]+)_([^_]+)_([^_]+)_([^_]+)_([^\\.]+)(\\..*)"
 filemeta <- tibble(
   filename = basename(params$input_vcf_file),
@@ -197,12 +180,34 @@ filemeta <- tibble(
   initials_patient = str_extract(filename,filepat,group = 5),
   extension = str_extract(filename,filepat,group = 6),
 )
+kable_style(filemeta,caption="Informations extraites du nom de fichier et qui apparaissent dans le rapport clinique")
+```
 
-doc <- read_docx(docx_template) |>
-  body_replace_all_text("SEQDATE",format(filemeta$run_date,"%Y-%m-%d"),fixed = TRUE) |>
-  body_replace_all_text("IDTUBE",filemeta$tube_id,fixed = TRUE) |>
-  body_replace_all_text("IDPATIENT",filemeta$initials_patient,fixed = TRUE)
 
+```{r echo=FALSE}
+# Format the table that will appear in the report
+MUT <- mut |> 
+  filter(str_starts(BCSQ,"@",negate = TRUE)) |>
+  filter(consequence != "synonymous") |>
+  mutate(mutation = case_when(
+    is.na(amino_acid_change) ~ str_trunc(str_to_lower(dna_change),20),
+    TRUE ~ amino_acid_change
+  )) |>
+  mutate(mutation = sprintf("%s (%.1f%%)",mutation,100*AF)) |>
+  mutate(mutation_type = replace_na(mutation_type,"")) |>
+  mutate(mutation_type = str_replace(mutation_type,"^[\\s]*$","Non-caractérisée")) |>
+  arrange(gene,POS) |>
+  dplyr::select(gene,Antiviral=drug,"Mutation (% échantillon portant la mutation)"=mutation,"Type de mutation"=mutation_type) |>
+  distinct()
+
+kable_style(MUT,caption="Liste des mutations montrées dans le rapport clinique")
+```
+
+
+
+
+```{r echo=FALSE}
+# Extract conclusion of the report
 profils <- mut |> 
   filter(!mutation_type %in% c("-",NA,""),!drug %in% c("-",NA,"")) |> 
   group_by(mutation_type) |> 
@@ -211,11 +216,26 @@ profils <- mut |>
 
 Rprofil <- filter(profils,str_starts(mutation_type,"R")) |> pull()
 Sprofil <- filter(profils,str_starts(mutation_type,"S")) |> pull()
-if (is_empty(Rprofil)) Rprofil <- ""
-if (is_empty(Sprofil)) Sprofil <- ""
-doc <- body_replace_all_text(doc,"LISTERESISTANCES", Rprofil, fixed = TRUE)
-doc <- body_replace_all_text(doc,"LISTESUSCEPTIBLES", Sprofil, fixed = TRUE) 
 
+concluding_sentence <- ""
+if (!is_empty(Rprofil) && !is_empty(Sprofil)) concluding_sentence <- str_glue("Le virus est probablement résistant à: {Rprofil}; et suceptible à: {Sprofil}.")
+if (!is_empty(Rprofil) && is_empty(Sprofil)) concluding_sentence <- str_glue("Le virus est probablement résistant à: {Rprofil}.")
+if (is_empty(Rprofil) && !is_empty(Sprofil)) concluding_sentence <- str_glue("Le virus est probablement suceptible à: {Sprofil}.")
+if (is_empty(Rprofil) && is_empty(Sprofil)) concluding_sentence <- str_glue("Aucun profil de résistance reconnu.")
+
+print(concluding_sentence)
+```
+
+
+```{r include=FALSE}
+# Generation du rapport clinique à partir du template WORD
+library(officer)
+docx_template <- file.path(params$input_db_dir,"template.docx")
+doc <- read_docx(docx_template) |>
+  body_replace_all_text("SEQDATE",format(filemeta$run_date,"%Y-%m-%d"),fixed = TRUE) |>
+  body_replace_all_text("IDTUBE",filemeta$tube_id,fixed = TRUE) |>
+  body_replace_all_text("IDPATIENT",filemeta$initials_patient,fixed = TRUE)
+doc <- body_replace_all_text(doc,"CONCLUSIONSDELANALYSE",concluding_sentence, fixed = TRUE)
 
 MUT <- split(MUT,factor(MUT$gene,seqlevels(fa)))
 for(i in names(MUT)) {
