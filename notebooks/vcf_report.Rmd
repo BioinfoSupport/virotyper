@@ -57,7 +57,7 @@ kable_style <- function(...,escape=FALSE,row.names = FALSE,align = "c") {
 
 # read a VCF file into a table
 query_vcf <- function(vcf_file) {
-  mut <- "/Users/prados/miniconda3/bin/bcftools query --format '%CHROM\t%POS\t%REF\t%ALT\t%BCSQ\t%DP\t%AF\n' '{vcf_file}'" |>
+  mut <- "bcftools query --format '%CHROM\t%POS\t%REF\t%ALT\t%BCSQ\t%DP\t%AF\n' '{vcf_file}'" |>
   #mut <- "bcftools query --format '%CHROM\t%POS\t%REF\t%ALT\t%BCSQ\t%DP\t%AF\n' '{vcf_file}'" |>
     str_glue() |>
     pipe() |>
