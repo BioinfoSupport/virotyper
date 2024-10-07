@@ -73,8 +73,8 @@ ui_panel_vcf <- function() {
       fileInput("vcf_file","Upload a VCF file",accept = c(".vcf",".gz"),multiple = FALSE,placeholder = "Upload a VCF file (with required INFO fields DP,AF,BCSQ)",width = "100%")
     ),
     input_task_button("btn_vcf_cmd_execute","Run"),
-    actionButton("btn_view_vcf_report","View HTML report",icon = icon("eye")),
-    downloadButton("btn_dl_vcf_report_docx","Download DOCX Report",icon = icon("download")),
+    shinyjs::disabled(actionButton("btn_view_vcf_report","View HTML report",icon = icon("eye"))),
+    shinyjs::disabled(downloadButton("btn_dl_vcf_report_docx","Download DOCX Report",icon = icon("download"))),
     br(),
     verbatimTextOutput("vcf_term_output")
   )
@@ -190,11 +190,23 @@ server <- function(input, output, session) {
   
   observeEvent(input$btn_view_vcf_report,{
     showModal(modalDialog(
-      title = "VCF report",
+      title = list("VCF report",downloadButton("btn_dl_vcf_report_html","Download",icon = icon("download"),class="btn-primary")),
       tags$iframe(srcdoc=readLines(str_glue("{file.path(workdir,current_vcf())}.{input$resistance_db}.html")), style='width:100%;height:600px;'),
-      easyClose = TRUE,size = "xl",
-      footer = downloadButton("btn_dl_vcf_report_html","Download",icon = icon("download"),class="btn-primary")
+      easyClose = TRUE,size = "xl",footer=list()
     ))
+  })
+  
+  observe({
+    switch (vcf_task$status(),
+      "success" = {
+        shinyjs::enable("btn_view_vcf_report")
+        shinyjs::enable("btn_dl_vcf_report_docx")
+      },
+      "running" = {
+        shinyjs::disable("btn_view_vcf_report")
+        shinyjs::disable("btn_dl_vcf_report_docx")
+      }
+    )
   })
   
   output$btn_dl_vcf_report_html <- downloadHandler(
@@ -208,7 +220,7 @@ server <- function(input, output, session) {
   )
   
   output$vcf_term_output <- renderText({
-    invalidateLater(500)
+    if (vcf_task$status() == "running") invalidateLater(500)
     paste0(vcf_task$current_content(),collapse = "\n")
   })
 
