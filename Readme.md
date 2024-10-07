@@ -76,7 +76,7 @@ ls data/HHV1/fasta/*.fasta | sed s/$/.all/ | xargs make
 ls data/HHV2/fasta/*.fasta | sed s/$/.all/ | xargs make DB_DIR=data/HHV2/db
 
 # Generate reports for all VCF files in a directory
-ls data/HHV1/vcf/*.vcf.gz data/HHV1/vcf/*.bam | sed s/$/.all/ | xargs make -kj6
+ls data/HHV1/vcf/*.vcf.gz | sed s/$/.all/ | xargs make DB_ID=hsv1
 ls data/HHV2/vcf/*.vcf.gz | sed s/$/.all/ | xargs make DB_ID=hsv2
 ```
 

@@ -1,5 +1,6 @@
 
 
+#SHELL = docker run --rm -v ./:/data/ --workdir /data virotyper bash -c
 DB_ID = hsv1
 DB_DIR = ./data/db/$(DB_ID)
 

@@ -2,9 +2,40 @@ library(bslib)
 library(shiny)
 library(bsicons)
 library(tidyverse)
+future::plan(future::multisession)
 
 # Accept up to 5Gb file upload
 options(shiny.maxRequestSize=5000*1024^2)
+
+TerminalTask <- R6::R6Class(
+  "TerminalTask",
+  inherit = shiny::ExtendedTask,
+  public = list(
+    fifo = NULL, # FIFO where stdin and stdout are redirected
+    fifo_con = NULL,
+    lines = character(0), # Terminal content (what has been read from the fifo)
+    
+    initialize = function() {
+      self$fifo <- tempfile(fileext = ".fifo") 
+      self$fifo_con <- fifo(self$fifo,"w+") # Create the FIFO
+      message(self$fifo)
+      super$initialize(function(cmd) { # Call superclass
+        cmd <- stringr::str_glue("({cmd}) > {self$fifo} 2>&1") # Adapt command line to redirect output to the FIFO
+        promises::future_promise(system(cmd,intern=FALSE))
+      })
+    },
+    
+    finalize = function() {
+      close(self$fifo_con)
+    },
+    
+    # Get current terminal content
+    current_content = function() {
+      self$lines <- c(self$lines,readLines(self$fifo_con))
+      self$lines
+    }
+  )
+)
 
 
 init_workdir <- function(workdir=tempfile()) {
@@ -41,9 +72,11 @@ ui_panel_vcf <- function() {
     div(class="shiny-input-panel",
       fileInput("vcf_file","Upload a VCF file",accept = c(".vcf",".gz"),multiple = FALSE,placeholder = "Upload a VCF file (with required INFO fields DP,AF,BCSQ)",width = "100%")
     ),
-    shinyjs::disabled(actionButton("btn_view_vcf_report","View HTML report",icon = icon("eye"))),
-    shinyjs::disabled(downloadButton("btn_dl_vcf_report_docx","Download DOCX Report",icon = icon("download"))),
-    verbatimTextOutput("term_output")
+    input_task_button("btn_vcf_cmd_execute","Run"),
+    actionButton("btn_view_vcf_report","View HTML report",icon = icon("eye")),
+    downloadButton("btn_dl_vcf_report_docx","Download DOCX Report",icon = icon("download")),
+    br(),
+    verbatimTextOutput("vcf_term_output")
   )
 }
 
@@ -54,9 +87,7 @@ ui_panel_fasta <- function() {
     div(class="shiny-input-panel",
         fileInput("fasta_file","Upload a FASTA file",accept = ".fasta",multiple = FALSE,placeholder = "Upload a FASTA file containing your assembly",width = "100%")
     ),
-    shinyjs::disabled(actionButton("btn_view_fasta_report","View HTML report",icon = icon("eye"))),
-    shinyjs::disabled(downloadButton("btn_dl_fasta_report_docx","Download DOCX Report",icon = icon("download"))),
-    verbatimTextOutput("term_output")
+    verbatimTextOutput("fasta_term_output")
   )
 }
 
@@ -75,7 +106,7 @@ ui <- function() {
         p("Generate a viral resistance report"),
         navset_tab(
           ui_panel_vcf(),
-          nav_panel("From FASTA")
+          ui_panel_fasta()
         )
       )
     )
@@ -135,48 +166,51 @@ server <- function(input, output, session) {
   #-#-#-#-#-#-#-#-#-#-#
   # VCF panel logic
   #-#-#-#-#-#-#-#-#-#-#
+  vcf_task <- TerminalTask$new() |>
+    bind_task_button("btn_vcf_cmd_execute")
+  
   current_vcf <- reactiveVal(NULL)
   
   # When a new VCF file is uploaded
   observeEvent(input$vcf_file,{
     validate(need(is.character(input$vcf_file$datapath),"invalid VCF"))
-    shinyjs::disable("btn_view_vcf_report")
-    shinyjs::disable("btn_dl_vcf_report_docx")
-    
     # Copy inputs to workdir location
     dir.create(file.path(workdir,"input"),recursive = TRUE)
-    current_vcf <- file.path(workdir,"input",input$vcf_file$name)
-    file.copy(input$vcf_file$datapath, current_vcf, overwrite = TRUE)
+    current_vcf <- file.path("input",input$vcf_file$name)
+    file.copy(input$vcf_file$datapath, file.path(workdir,current_vcf), overwrite = TRUE)
     current_vcf(current_vcf)
-    
+  })
+  
+  observeEvent(input$btn_vcf_cmd_execute,{
     # Generate report
-    cmd <- str_glue("cd '{workdir}' && make DB_ID={input$resistance_db} '{current_vcf}.all'")
+    cmd <- str_glue("echo {workdir} && cd '{workdir}' && make DB_ID={input$resistance_db} '{current_vcf()}.all'")
     message(cmd)
-    withProgress(message="Generate VCF report",{
-      system(cmd)
-    })
-    shinyjs::enable("btn_view_vcf_report")
-    shinyjs::enable("btn_dl_vcf_report_docx")
+    vcf_task$invoke(cmd)
   })
   
   observeEvent(input$btn_view_vcf_report,{
     showModal(modalDialog(
       title = "VCF report",
-      tags$iframe(srcdoc=readLines(str_glue("{current_vcf()}.{input$resistance_db}.html")), style='width:100%;height:600px;'),
+      tags$iframe(srcdoc=readLines(str_glue("{file.path(workdir,current_vcf())}.{input$resistance_db}.html")), style='width:100%;height:600px;'),
       easyClose = TRUE,size = "xl",
       footer = downloadButton("btn_dl_vcf_report_html","Download",icon = icon("download"),class="btn-primary")
     ))
   })
   
   output$btn_dl_vcf_report_html <- downloadHandler(
-    filename = function(){str_glue("{basename(current_vcf())}.{input$resistance_db}.html")},
-    content = function(file) {file.copy(str_glue("{current_vcf()}.{input$resistance_db}.html"),file)}
+    filename = function(){str_glue("{basename(file.path(workdir,current_vcf()))}.{input$resistance_db}.html")},
+    content = function(file) {file.copy(str_glue("{file.path(workdir,current_vcf())}.{input$resistance_db}.html"),file)}
   )
   
   output$btn_dl_vcf_report_docx <- downloadHandler(
-    filename = function(){str_glue("{basename(current_vcf())}.{input$resistance_db}.docx")},
-    content = function(file) {file.copy(str_glue("{current_vcf()}.{input$resistance_db}.docx"),file)}
+    filename = function(){str_glue("{basename(file.path(workdir,current_vcf()))}.{input$resistance_db}.docx")},
+    content = function(file) {file.copy(str_glue("{file.path(workdir,current_vcf())}.{input$resistance_db}.docx"),file)}
   )
+  
+  output$vcf_term_output <- renderText({
+    invalidateLater(500)
+    paste0(vcf_task$current_content(),collapse = "\n")
+  })
 
 }
 
