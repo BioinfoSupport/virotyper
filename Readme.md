@@ -14,9 +14,19 @@ DEALINGS IN THE SOFTWARE.
 - prerequisite: a resistance database must exist in folder `data/<DBID>/db`, see section below for the format.
 
 
+## Shiny App
 ```bash
-# Build the docker image
-docker build -t virotyper ./
+# Build the docker image (--platform need to be set to run shiny-server)
+docker build --platform linux/amd64 -t virotyper ./
+
+# Run shiny app
+docker run --platform linux/amd64 --rm -p "3838:3838" -v "./":/srv/shiny-server -e APPLICATION_LOGS_TO_STDOUT=true virotyper
+```
+
+## Command line
+```bash
+# Build the docker image (--platform need to be set to run shiny-server)
+docker build --platform linux/amd64 -t virotyper ./
 
 # Run a bash in the container
 docker run --rm -it -v $(pwd):/data --workdir /data virotyper bash
@@ -26,8 +36,6 @@ make DB_ID=hsv2 <filename>.vcf.all
 make DB_ID=hsv2 <filename>.bam.all
 make DB_ID=hsv1 <filename>.fasta.all
 ```
-
-
 
 # Resistance database
 
