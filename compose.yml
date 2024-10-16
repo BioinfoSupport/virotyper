@@ -1,0 +1,10 @@
+services:
+  shiny:
+    image: virotyper
+    build: ./
+    ports: 
+      - "3838:3838" 
+    volumes:
+      - "./:/srv/shiny-server"
+    environment:
+      - APPLICATION_LOGS_TO_STDOUT=true

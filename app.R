@@ -181,6 +181,7 @@ server <- function(input, output, session) {
     current_vcf(current_vcf)
   })
   
+  # When Run is clicked
   observeEvent(input$btn_vcf_cmd_execute,{
     # Generate report
     cmd <- str_glue("echo {workdir} && cd '{workdir}' && make DB_ID={input$resistance_db} '{current_vcf()}.all'")
@@ -188,6 +189,7 @@ server <- function(input, output, session) {
     vcf_task$invoke(cmd)
   })
   
+  # When View Button is clicked
   observeEvent(input$btn_view_vcf_report,{
     showModal(modalDialog(
       title = list("VCF report",downloadButton("btn_dl_vcf_report_html","Download",icon = icon("download"),class="btn-primary")),
@@ -196,29 +198,41 @@ server <- function(input, output, session) {
     ))
   })
   
+  # When running task status change
   observe({
     switch (vcf_task$status(),
       "success" = {
         shinyjs::enable("btn_view_vcf_report")
         shinyjs::enable("btn_dl_vcf_report_docx")
+        shinyjs::enable("vcf_file")
       },
       "running" = {
         shinyjs::disable("btn_view_vcf_report")
         shinyjs::disable("btn_dl_vcf_report_docx")
+        shinyjs::disable("vcf_file")
       }
     )
   })
   
+  # When input parameters change
+  observeEvent(input$vcf_file,{
+    shinyjs::disable("btn_view_vcf_report")
+    shinyjs::disable("btn_dl_vcf_report_docx")
+  })
+  
+  # When the download HTML button is clicked 
   output$btn_dl_vcf_report_html <- downloadHandler(
     filename = function(){str_glue("{basename(file.path(workdir,current_vcf()))}.{input$resistance_db}.html")},
     content = function(file) {file.copy(str_glue("{file.path(workdir,current_vcf())}.{input$resistance_db}.html"),file)}
   )
   
+  # When the download DOCX button is clicked
   output$btn_dl_vcf_report_docx <- downloadHandler(
     filename = function(){str_glue("{basename(file.path(workdir,current_vcf()))}.{input$resistance_db}.docx")},
     content = function(file) {file.copy(str_glue("{file.path(workdir,current_vcf())}.{input$resistance_db}.docx"),file)}
   )
   
+  # Periodic update of Terminal output
   output$vcf_term_output <- renderText({
     if (vcf_task$status() == "running") invalidateLater(500)
     paste0(vcf_task$current_content(),collapse = "\n")
