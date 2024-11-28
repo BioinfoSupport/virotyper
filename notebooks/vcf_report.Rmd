@@ -20,7 +20,7 @@ params:
 Ce rapport affiche les mutations d'un fichier VCF, et les compare à une base de 
 donnée de mutations conférants des résistances à des antiviraux.
 
-**Requirements:** Le fihcier VCF d'entré doit contenir les champs INFO/DP,INFO/AF,INFO/BCSQ.
+**Requirements:** Le fichier VCF d'entré doit contenir les champs INFO/DP,INFO/AF,INFO/BCSQ.
 
 **Note:** Le rapport du fichier BAM correspondant au fichier VCF devrait être inspécté avant celui-ci pour s'assurer que les séquences de référence sont entièrement couvertes par le séquencage. En effet, il est possible que des mutations soient manquées dans le VCF dans des mutations faiblement couverte en séquencage.
 
@@ -77,9 +77,6 @@ query_vcf <- function(vcf_file) {
 | Nom du fichier VCF analysé:       | ``r params$input_vcf_file``             |
 | Nom du rapport produit:           | ``r params$output_docx_report``         |
 
-# TODO
-
- - Ajouter dans le check des resistance le check des stops
 
 ```{r,message=FALSE}
 # Load data
